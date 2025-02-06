@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/todo.dart';
 import '../providers/todo_provider.dart';
+import 'edit_todo_dialog.dart';
 
 class TodoItem extends StatelessWidget {
   final Todo todo;
@@ -12,6 +13,18 @@ class TodoItem extends StatelessWidget {
     required this.todo,
     this.isSubtask = false,
   });
+
+  void _showEditDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => EditTodoDialog(
+        todo: todo,
+        onSave: (newTitle) {
+          context.read<TodoProvider>().editTodo(todo, newTitle);
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +55,10 @@ class TodoItem extends StatelessWidget {
                     context.read<TodoProvider>().toggleExpanded(todo);
                   },
                 ),
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () => _showEditDialog(context),
+              ),
               IconButton(
                 icon: const Icon(Icons.add),
                 onPressed: () {

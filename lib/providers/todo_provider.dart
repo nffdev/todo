@@ -134,4 +134,10 @@ class TodoProvider with ChangeNotifier {
     _selectedTodo = todo;
     notifyListeners();
   }
+
+  void editTodo(Todo todo, String newTitle) {
+    _updateTodoInList(todo, (t) {
+      t.title = newTitle;
+    });
+  }
 }
