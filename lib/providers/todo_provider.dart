@@ -149,4 +149,24 @@ class TodoProvider with ChangeNotifier {
     _selectedTodo = todo;
     notifyListeners();
   }
+
+  List<Todo> searchTodos(String query) {
+    if (query.isEmpty) return [];
+    
+    query = query.toLowerCase();
+    List<Todo> results = [];
+    
+    void searchInTodoList(List<Todo> todos) {
+      for (var todo in todos) {
+        if (todo.title.toLowerCase().contains(query) ||
+            (todo.description?.toLowerCase().contains(query) ?? false)) {
+          results.add(todo);
+        }
+        searchInTodoList(todo.subtasks);
+      }
+    }
+    
+    searchInTodoList(_todos);
+    return results;
+  }
 }

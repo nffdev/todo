@@ -13,14 +13,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => TodoProvider(),
+      create: (context) => TodoProvider(),
       child: MaterialApp(
         title: 'Todo List',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           useMaterial3: true,
         ),
-        home: HomeScreen(title: 'Ma Todo List'),
+        home: const HomeScreen(),
       ),
     );
   }
