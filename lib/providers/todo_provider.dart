@@ -22,6 +22,21 @@ class TodoProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void editTodo(
+    Todo todo, {
+    required String title,
+    String? description,
+    DateTime? deadline,
+    required Priority priority,
+  }) {
+    _updateTodoInList(todo, (t) {
+      t.title = title;
+      t.description = description;
+      t.deadline = deadline;
+      t.priority = priority;
+    });
+  }
+
   void toggleTodo(Todo todo) {
     bool found = false;
     for (var i = 0; i < _todos.length; i++) {
@@ -133,11 +148,5 @@ class TodoProvider with ChangeNotifier {
   void setSelectedTodo(Todo? todo) {
     _selectedTodo = todo;
     notifyListeners();
-  }
-
-  void editTodo(Todo todo, String newTitle) {
-    _updateTodoInList(todo, (t) {
-      t.title = newTitle;
-    });
   }
 }

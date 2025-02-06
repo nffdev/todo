@@ -19,59 +19,127 @@ class TodoItem extends StatelessWidget {
       context: context,
       builder: (context) => EditTodoDialog(
         todo: todo,
-        onSave: (newTitle) {
-          context.read<TodoProvider>().editTodo(todo, newTitle);
+        onSave: (title, description, deadline, priority) {
+          context.read<TodoProvider>().editTodo(
+                todo,
+                title: title,
+                description: description,
+                deadline: deadline,
+                priority: priority,
+              );
         },
       ),
     );
+  }
+
+  Color _getPriorityColor() {
+    switch (todo.priority) {
+      case Priority.low:
+        return Colors.green;
+      case Priority.medium:
+        return Colors.orange;
+      case Priority.high:
+        return Colors.red;
+    }
+  }
+
+  IconData _getPriorityIcon() {
+    switch (todo.priority) {
+      case Priority.low:
+        return Icons.arrow_downward;
+      case Priority.medium:
+        return Icons.remove;
+      case Priority.high:
+        return Icons.arrow_upward;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        ListTile(
-          leading: Checkbox(
-            value: todo.isDone,
-            onChanged: (_) {
-              context.read<TodoProvider>().toggleTodo(todo);
-            },
+        Card(
+          margin: EdgeInsets.only(
+            left: isSubtask ? 0 : 8,
+            right: 8,
+            top: 4,
+            bottom: 4,
           ),
-          title: Text(
-            todo.title,
-            style: TextStyle(
-              decoration: todo.isDone ? TextDecoration.lineThrough : null,
-            ),
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (todo.subtasks.isNotEmpty)
-                IconButton(
-                  icon: Icon(
-                    todo.isExpanded ? Icons.expand_less : Icons.expand_more,
-                  ),
-                  onPressed: () {
-                    context.read<TodoProvider>().toggleExpanded(todo);
+          child: ListTile(
+            leading: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Checkbox(
+                  value: todo.isDone,
+                  onChanged: (_) {
+                    context.read<TodoProvider>().toggleTodo(todo);
                   },
                 ),
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () => _showEditDialog(context),
+                Icon(
+                  _getPriorityIcon(),
+                  color: _getPriorityColor(),
+                ),
+              ],
+            ),
+            title: Text(
+              todo.title,
+              style: TextStyle(
+                decoration: todo.isDone ? TextDecoration.lineThrough : null,
               ),
-              IconButton(
-                icon: const Icon(Icons.add),
-                onPressed: () {
-                  context.read<TodoProvider>().setSelectedTodo(todo);
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete),
-                onPressed: () {
-                  context.read<TodoProvider>().removeTodo(todo);
-                },
-              ),
-            ],
+            ),
+            subtitle: todo.description != null || todo.deadline != null
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (todo.description != null) ...[
+                        const SizedBox(height: 4),
+                        Text(todo.description!),
+                      ],
+                      if (todo.deadline != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.calendar_today, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${todo.deadline!.day}/${todo.deadline!.month}/${todo.deadline!.year}',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  )
+                : null,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (todo.subtasks.isNotEmpty)
+                  IconButton(
+                    icon: Icon(
+                      todo.isExpanded ? Icons.expand_less : Icons.expand_more,
+                    ),
+                    onPressed: () {
+                      context.read<TodoProvider>().toggleExpanded(todo);
+                    },
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () => _showEditDialog(context),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () {
+                    context.read<TodoProvider>().setSelectedTodo(todo);
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: () {
+                    context.read<TodoProvider>().removeTodo(todo);
+                  },
+                ),
+              ],
+            ),
           ),
         ),
         if (todo.isExpanded && todo.subtasks.isNotEmpty)
