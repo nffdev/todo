@@ -23,8 +23,15 @@ class MyApp extends StatelessWidget {
 class Todo {
   String title;
   bool isDone;
+  List<Todo> subtasks;
+  bool isExpanded;
 
-  Todo({required this.title, this.isDone = false});
+  Todo({
+    required this.title, 
+    this.isDone = false, 
+    List<Todo>? subtasks,
+    this.isExpanded = false,
+  }) : subtasks = subtasks ?? [];
 }
 
 class MyHomePage extends StatefulWidget {
@@ -39,25 +46,99 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final List<Todo> _todos = [];
   final TextEditingController _textController = TextEditingController();
+  Todo? _selectedTodo;
 
-  void _addTodo() {
+  void _addTodo({Todo? parent}) {
     if (_textController.text.isEmpty) return;
+    
     setState(() {
-      _todos.add(Todo(title: _textController.text));
+      final newTodo = Todo(title: _textController.text);
+      if (parent != null) {
+        parent.subtasks.add(newTodo);
+      } else {
+        _todos.add(newTodo);
+      }
       _textController.clear();
+      _selectedTodo = null;
     });
   }
 
-  void _toggleTodo(int index) {
+  void _toggleTodo(Todo todo) {
     setState(() {
-      _todos[index].isDone = !_todos[index].isDone;
+      todo.isDone = !todo.isDone;
+      // Mettre à jour également l'état des sous-tâches
+      for (var subtask in todo.subtasks) {
+        subtask.isDone = todo.isDone;
+      }
     });
   }
 
-  void _removeTodo(int index) {
+  void _removeTodo(Todo todo, {Todo? parent}) {
     setState(() {
-      _todos.removeAt(index);
+      if (parent != null) {
+        parent.subtasks.remove(todo);
+      } else {
+        _todos.remove(todo);
+      }
     });
+  }
+
+  void _toggleExpanded(Todo todo) {
+    setState(() {
+      todo.isExpanded = !todo.isExpanded;
+    });
+  }
+
+  Widget _buildTodoItem(Todo todo, {Todo? parent}) {
+    return Column(
+      children: [
+        ListTile(
+          leading: Checkbox(
+            value: todo.isDone,
+            onChanged: (_) => _toggleTodo(todo),
+          ),
+          title: Text(
+            todo.title,
+            style: TextStyle(
+              decoration: todo.isDone ? TextDecoration.lineThrough : null,
+            ),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (todo.subtasks.isNotEmpty)
+                IconButton(
+                  icon: Icon(
+                    todo.isExpanded ? Icons.expand_less : Icons.expand_more,
+                  ),
+                  onPressed: () => _toggleExpanded(todo),
+                ),
+              IconButton(
+                icon: const Icon(Icons.add),
+                onPressed: () {
+                  setState(() {
+                    _selectedTodo = todo;
+                  });
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete),
+                onPressed: () => _removeTodo(todo, parent: parent),
+              ),
+            ],
+          ),
+        ),
+        if (todo.isExpanded && todo.subtasks.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 32.0),
+            child: Column(
+              children: todo.subtasks
+                  .map((subtask) => _buildTodoItem(subtask, parent: todo))
+                  .toList(),
+            ),
+          ),
+      ],
+    );
   }
 
   @override
@@ -76,17 +157,29 @@ class _MyHomePageState extends State<MyHomePage> {
                 Expanded(
                   child: TextField(
                     controller: _textController,
-                    decoration: const InputDecoration(
-                      hintText: 'Ajouter une tâche',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      hintText: _selectedTodo != null 
+                          ? 'Ajouter une sous-tâche à "${_selectedTodo!.title}"'
+                          : 'Ajouter une tâche',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: _selectedTodo != null
+                          ? IconButton(
+                              icon: const Icon(Icons.arrow_back),
+                              onPressed: () {
+                                setState(() {
+                                  _selectedTodo = null;
+                                });
+                              },
+                            )
+                          : null,
                     ),
-                    onSubmitted: (_) => _addTodo(),
+                    onSubmitted: (_) => _addTodo(parent: _selectedTodo),
                   ),
                 ),
                 const SizedBox(width: 10),
                 IconButton(
                   icon: const Icon(Icons.add),
-                  onPressed: _addTodo,
+                  onPressed: () => _addTodo(parent: _selectedTodo),
                 ),
               ],
             ),
@@ -95,23 +188,7 @@ class _MyHomePageState extends State<MyHomePage> {
             child: ListView.builder(
               itemCount: _todos.length,
               itemBuilder: (context, index) {
-                final todo = _todos[index];
-                return ListTile(
-                  leading: Checkbox(
-                    value: todo.isDone,
-                    onChanged: (_) => _toggleTodo(index),
-                  ),
-                  title: Text(
-                    todo.title,
-                    style: TextStyle(
-                      decoration: todo.isDone ? TextDecoration.lineThrough : null,
-                    ),
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete),
-                    onPressed: () => _removeTodo(index),
-                  ),
-                );
+                return _buildTodoItem(_todos[index]);
               },
             ),
           ),
