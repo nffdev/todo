@@ -31,7 +31,6 @@ dependencies:
   flutter:
     sdk: flutter
   provider: ^6.1.1
-  sqflite: ^2.3.2
   sqflite_common_ffi: ^2.3.2+1
   path: ^1.8.3
 
