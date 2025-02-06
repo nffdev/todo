@@ -1,52 +1,70 @@
 import 'package:flutter/foundation.dart';
 import '../models/todo.dart';
+import '../services/database_service.dart';
 
 class TodoProvider with ChangeNotifier {
-  final List<Todo> _todos = [];
+  final DatabaseService _db = DatabaseService();
+  List<Todo> _todos = [];
   Todo? _selectedTodo;
 
   List<Todo> get todos => List.unmodifiable(_todos);
   Todo? get selectedTodo => _selectedTodo;
 
-  void addTodo(String title, {Todo? parent}) {
+  TodoProvider() {
+    _loadTodos();
+  }
+
+  Future<void> _loadTodos() async {
+    _todos = await _db.getAllTodos();
+    notifyListeners();
+  }
+
+  Future<void> addTodo(String title, {Todo? parent}) async {
     if (title.isEmpty) return;
     
+    final newTodo = Todo(title: title);
+    
     if (parent != null) {
-      _updateTodoInList(parent, (todo) {
-        todo.subtasks.add(Todo(title: title));
+      await _updateTodoInList(parent, (todo) async {
+        todo.subtasks.add(newTodo);
+        await _db.insertTodo(newTodo, parentId: parent.id);
       });
     } else {
-      _todos.add(Todo(title: title));
+      _todos.add(newTodo);
+      await _db.insertTodo(newTodo);
     }
+    
     _selectedTodo = null;
     notifyListeners();
   }
 
-  void editTodo(
+  Future<void> editTodo(
     Todo todo, {
     required String title,
     String? description,
     DateTime? deadline,
     required Priority priority,
-  }) {
-    _updateTodoInList(todo, (t) {
+  }) async {
+    await _updateTodoInList(todo, (t) async {
       t.title = title;
       t.description = description;
       t.deadline = deadline;
       t.priority = priority;
+      await _db.updateTodo(t);
     });
   }
 
-  void toggleTodo(Todo todo) {
+  Future<void> toggleTodo(Todo todo) async {
     bool found = false;
     for (var i = 0; i < _todos.length; i++) {
       if (_todos[i].id == todo.id) {
         _todos[i] = todo.copyWith(isDone: !todo.isDone);
-        _updateSubtasks(_todos[i].subtasks, _todos[i].isDone);
+        await _updateSubtasks(_todos[i].subtasks, _todos[i].isDone);
+        await _db.updateTodo(_todos[i]);
         found = true;
         break;
       } else {
-        found = _toggleSubtask(_todos[i].subtasks, todo);
+        found = await _toggleSubtask(_todos[i].subtasks, todo);
         if (found) break;
       }
     }
@@ -55,14 +73,15 @@ class TodoProvider with ChangeNotifier {
     }
   }
 
-  bool _toggleSubtask(List<Todo> subtasks, Todo target) {
+  Future<bool> _toggleSubtask(List<Todo> subtasks, Todo target) async {
     for (var i = 0; i < subtasks.length; i++) {
       if (subtasks[i].id == target.id) {
         subtasks[i] = target.copyWith(isDone: !target.isDone);
-        _updateSubtasks(subtasks[i].subtasks, subtasks[i].isDone);
+        await _updateSubtasks(subtasks[i].subtasks, subtasks[i].isDone);
+        await _db.updateTodo(subtasks[i]);
         return true;
       } else {
-        if (_toggleSubtask(subtasks[i].subtasks, target)) {
+        if (await _toggleSubtask(subtasks[i].subtasks, target)) {
           return true;
         }
       }
@@ -70,22 +89,24 @@ class TodoProvider with ChangeNotifier {
     return false;
   }
 
-  void _updateSubtasks(List<Todo> subtasks, bool isDone) {
+  Future<void> _updateSubtasks(List<Todo> subtasks, bool isDone) async {
     for (var i = 0; i < subtasks.length; i++) {
       subtasks[i] = subtasks[i].copyWith(isDone: isDone);
-      _updateSubtasks(subtasks[i].subtasks, isDone);
+      await _db.updateTodo(subtasks[i]);
+      await _updateSubtasks(subtasks[i].subtasks, isDone);
     }
   }
 
-  void removeTodo(Todo todo) {
+  Future<void> removeTodo(Todo todo) async {
     bool removed = false;
     for (var i = 0; i < _todos.length; i++) {
       if (_todos[i].id == todo.id) {
+        await _db.deleteTodo(todo.id);
         _todos.removeAt(i);
         removed = true;
         break;
       } else {
-        removed = _removeSubtask(_todos[i].subtasks, todo);
+        removed = await _removeSubtask(_todos[i].subtasks, todo);
         if (removed) break;
       }
     }
@@ -94,13 +115,14 @@ class TodoProvider with ChangeNotifier {
     }
   }
 
-  bool _removeSubtask(List<Todo> subtasks, Todo target) {
+  Future<bool> _removeSubtask(List<Todo> subtasks, Todo target) async {
     for (var i = 0; i < subtasks.length; i++) {
       if (subtasks[i].id == target.id) {
+        await _db.deleteTodo(target.id);
         subtasks.removeAt(i);
         return true;
       } else {
-        if (_removeSubtask(subtasks[i].subtasks, target)) {
+        if (await _removeSubtask(subtasks[i].subtasks, target)) {
           return true;
         }
       }
@@ -108,21 +130,22 @@ class TodoProvider with ChangeNotifier {
     return false;
   }
 
-  void toggleExpanded(Todo todo) {
-    _updateTodoInList(todo, (t) {
+  Future<void> toggleExpanded(Todo todo) async {
+    await _updateTodoInList(todo, (t) async {
       t.isExpanded = !t.isExpanded;
+      await _db.updateTodo(t);
     });
   }
 
-  void _updateTodoInList(Todo target, Function(Todo) update) {
+  Future<void> _updateTodoInList(Todo target, Function(Todo) update) async {
     bool found = false;
     for (var i = 0; i < _todos.length; i++) {
       if (_todos[i].id == target.id) {
-        update(_todos[i]);
+        await update(_todos[i]);
         found = true;
         break;
       } else {
-        found = _updateSubtaskInList(_todos[i].subtasks, target, update);
+        found = await _updateSubtaskInList(_todos[i].subtasks, target, update);
         if (found) break;
       }
     }
@@ -131,13 +154,13 @@ class TodoProvider with ChangeNotifier {
     }
   }
 
-  bool _updateSubtaskInList(List<Todo> subtasks, Todo target, Function(Todo) update) {
+  Future<bool> _updateSubtaskInList(List<Todo> subtasks, Todo target, Function(Todo) update) async {
     for (var i = 0; i < subtasks.length; i++) {
       if (subtasks[i].id == target.id) {
-        update(subtasks[i]);
+        await update(subtasks[i]);
         return true;
       } else {
-        if (_updateSubtaskInList(subtasks[i].subtasks, target, update)) {
+        if (await _updateSubtaskInList(subtasks[i].subtasks, target, update)) {
           return true;
         }
       }
@@ -150,23 +173,8 @@ class TodoProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  List<Todo> searchTodos(String query) {
+  Future<List<Todo>> searchTodos(String query) async {
     if (query.isEmpty) return [];
-    
-    query = query.toLowerCase();
-    List<Todo> results = [];
-    
-    void searchInTodoList(List<Todo> todos) {
-      for (var todo in todos) {
-        if (todo.title.toLowerCase().contains(query) ||
-            (todo.description?.toLowerCase().contains(query) ?? false)) {
-          results.add(todo);
-        }
-        searchInTodoList(todo.subtasks);
-      }
-    }
-    
-    searchInTodoList(_todos);
-    return results;
+    return _db.searchTodos(query);
   }
 }

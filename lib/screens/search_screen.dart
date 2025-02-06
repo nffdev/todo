@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/todo_provider.dart';
 import '../widgets/todo_item.dart';
+import '../models/todo.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -54,34 +55,53 @@ class _SearchScreenState extends State<SearchScreen> {
         Expanded(
           child: Consumer<TodoProvider>(
             builder: (context, todoProvider, child) {
-              final searchResults = todoProvider.searchTodos(_searchQuery);
-              if (searchResults.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.search_off,
-                        size: 64,
-                        color: Colors.grey,
+              return FutureBuilder<List<Todo>>(
+                future: todoProvider.searchTodos(_searchQuery),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text('Error: ${snapshot.error}'),
+                    );
+                  }
+
+                  final searchResults = snapshot.data ?? [];
+
+                  if (searchResults.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.search_off,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _searchQuery.isEmpty
+                                ? 'Start typing to search tasks'
+                                : 'No tasks found',
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  color: Colors.grey,
+                                ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _searchQuery.isEmpty
-                            ? 'Start typing to search tasks'
-                            : 'No tasks found',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: Colors.grey,
-                            ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              return ListView.builder(
-                itemCount: searchResults.length,
-                itemBuilder: (context, index) {
-                  return TodoItem(todo: searchResults[index]);
+                    );
+                  }
+
+                  return ListView.builder(
+                    itemCount: searchResults.length,
+                    itemBuilder: (context, index) {
+                      return TodoItem(todo: searchResults[index]);
+                    },
+                  );
                 },
               );
             },
